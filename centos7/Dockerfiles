@@ -1,0 +1,123 @@
+FROM centos:7.4.1708
+
+# 运行
+#docker build -t centos74:php7 .
+
+# **注意：需要挂载文件目录
+#   *网站根目录* /path/www:/data/software/www
+#   *配置根目录* /path/conf:/data/software/conf
+#
+#docker run -d -v /path/www:/data/software/www -v /path/conf:/data/software/conf -p 88:80 centos74:php7
+
+# /data/software/conf  配置文件夹
+# /data/software/www   网站根目录
+# 
+# 挂载当前目录下的配置文件夹目录格式
+#|-conf
+#|---|-php
+#|---|---|-php.ini
+#|---|---|-php-fpm.conf
+#|---|-nginx
+#|---|---|nginx.conf
+#
+
+MAINTAINER szh <sali_hub@163.com>
+
+# 工作目录
+ENV WORK_PATH /data/software
+# 挂载配置文件目录
+ENV CONF_PATH $WORK_PATH/conf
+# 服务所在目录
+ENV SERVER_PATH /usr/local/webserver
+# 服务所在目录
+ENV EXT_PATH $SERVER_PATH/php_ext
+
+# 扩展路径
+#ENV REDIS_PATH      $EXT_PATH/redis
+#ENV YAF_PATH        $EXT_PATH/yaf
+#ENV SEASLOG_PATH    $EXT_PATH/seaslog
+#ENV MSGPACK_PATH    $EXT_PATH/msgpack
+#ENV AMQP_PATH       $EXT_PATH/amqp
+#ENV RABBITMQ_C_PATH $EXT_PATH/rabbitmq-c
+
+#工作目录
+RUN mkdir -p '$WORK_PATH' && \
+mkdir -p '$CONF_PATH/nginx/' && \
+mkdir -p '$CONF_PATH/php/' && \
+mkdir -p '$SERVER_PATH'
+
+#导入文件
+ADD ./repo/ $WORK_PATH
+WORKDIR $WORK_PATH
+
+#安装依赖
+RUN	mv /etc/yum.repos.d/CentOS-Base.repo /etc/yum.repos.d/CentOS-Base.repo.backup && \
+	mv CentOS7-Base-163.repo /etc/yum.repos.d/CentOS-Base.repo
+RUN	yum makecache && \
+	yum -y install gcc gcc-c++\
+    wget tar passwd	git unzip curl curl-devel cmake \
+    python-setuptools python-sphinx.noarch \
+    openssl openssl-devel psmisc \
+    gperftools-devel initscripts \
+	pcre pcre-devel  zlib zlib-devel \
+	libxml2 libxml2-devel dos2unix gperf \
+	libjpeg libjpeg-devel libpng libpng-devel freetype freetype-devel \
+	libevent libevent-devel  bzip2-devel  ncurses-devel \
+	boost libtool  boost-devel* libuuid-devel  &&\
+	yum clean all  &&\ 
+	rm -rf /var/lib/apt/lists/* &&\
+	rm -rf /var/cache/yum
+
+
+#安装 re2c 
+RUN tar zxvf re2c-0.16.tar.gz && rm -rf re2c-0.16.tar.gz && cd re2c-0.16 && ./configure && make && make install && cd .. && rm -rf re2c-0.16
+
+# 安装 Libmcrypt
+RUN tar zxvf libmcrypt-2.5.8.tar.gz && rm -rf libmcrypt-2.5.8.tar.gz && cd libmcrypt-2.5.8 && ./configure --prefix=/usr/local  && make && make install && cd .. && rm -rf libmcrypt-2.5.8
+
+
+#用户账号设置 www 组下 www 并授予所有权限
+RUN echo 'root:root' | chpasswd
+RUN /usr/sbin/groupadd www && /usr/sbin/useradd -r -m -s /bin/bash -g www www &&  echo "www ALL=(ALL) ALL" >> /etc/sudoers
+
+
+#安装tengine
+RUN	tar zxvf pcre-8.10.tar.gz && rm -rf pcre-8.10.tar.gz && cd pcre-8.10 && ./configure && make && make install && cd .. && rm -rf pcre-8.10
+RUN tar zxvf tengine-2.1.2.tar.gz && rm -rf tengine-2.1.2.tar.gz && cd tengine-2.1.2 && ./configure --prefix=$SERVER_PATH/tengine  --user=www --group=www --with-http_stub_status_module --with-http_ssl_module --with-file-aio --with-http_realip_module --with-ipv6 && make && make install && cd ../ && rm -rf ./tengine-2.1.2
+# 操作启动文件
+RUN mv ./nginx /etc/init.d/nginx && chmod +x /etc/init.d/nginx
+
+
+# 安装 PHP7.1
+# TODO 自己挂载php.ini
+
+RUN wget http://cn2.php.net/get/php-7.1.28.tar.gz/from/this/mirror && tar zxvf mirror && rm -rf php-7.1.28.tar.gz && rm -rf mirror && cd php-7.1.28 && ./configure --prefix=$SERVER_PATH/php --with-config-file-path=$CONF_PATH/php --enable-fpm --with-fpm-user=www --with-fpm-group=www --with-mysqli --with-pdo-mysql --with-iconv-dir --with-freetype-dir --with-jpeg-dir --with-png-dir --with-zlib --with-libxml-dir=/usr --enable-xml --disable-rpath --enable-bcmath --enable-shmop --enable-sysvsem --enable-inline-optimization --with-curl --enable-mbregex --enable-mbstring  --enable-ftp --with-gd --enable-gd-native-ttf --with-openssl --with-mhash --enable-pcntl --enable-sockets --with-xmlrpc --enable-zip --enable-soap --without-pear --with-gettext --enable-fileinfo --enable-maintainer-zts && make clean && make && make install
+RUN cp ./php-7.1.28/sapi/fpm/init.d.php-fpm.in /etc/init.d/php-fpm && chmod 755 /etc/init.d/php-fpm && sed -i '$a  chown -R www:www /var/run/' /etc/init.d/php-fpm
+RUN rm -rf php-7.1.28
+# 环境变量
+RUN sed -i '$aPATH=$SERVER_PATH/php/bin:\$PATH\n export PATH' /etc/profile  && source /etc/profile && mv $SERVER_PATH/php/etc/php-fpm.conf.default $SERVER_PATH/php/etc/php-fpm.conf && \
+sed -i 's!@sbindir@!$SERVER_PATH/php/sbin!g'   /etc/init.d/php-fpm && \
+sed -i 's!@sysconfdir@!$CONF_PATH/php!g'   /etc/init.d/php-fpm && \
+sed -i 's!@localstatedir@!/var!g'   /etc/init.d/php-fpm  && \
+ln -s $SERVER_PATH/php/bin/php /usr/local/bin/php
+
+#Install Composer
+RUN mv composer /usr/local/bin/composer && chmod +x /usr/local/bin/composer && /usr/local/bin/composer config -g repo.packagist composer https://packagist.phpcomposer.com
+
+
+# 构建web服务器目录
+
+RUN chmod -R 777 $SERVER_PATH/php/var/log/  && chown -R www:www /var/run/
+
+
+#开放端口
+EXPOSE 80
+
+
+# 安装 supervisord 
+RUN easy_install supervisor && \
+	mkdir -p /usr/local/var/log/supervisord 
+RUN mv supervisord.conf /etc/supervisord.conf && \ 
+	mkdir -p /usr/local/var/run
+
+CMD ["/usr/bin/supervisord","-c", "/etc/supervisord.conf"]

@@ -1,0 +1,24 @@
+FROM php:7.1.28-fpm-alpine
+
+MAINTAINER szh <sali_hub@163.com>
+
+ENV WORK_PATH /var/html/work
+ENV PHPIZE_DEPS \
+		autoconf \
+		dpkg-dev dpkg \
+		file \
+		g++ \
+		gcc \
+		libc-dev \
+		make \
+		pkgconf \
+		re2c \
+		cmake
+
+RUN mkdir -p $WORK_PATH
+
+WORKDIR $WORK_PATH
+
+RUN apk add $PHPIZE_DEPS 
+
+CMD ["php-fpm"]
