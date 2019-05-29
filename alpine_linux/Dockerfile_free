@@ -30,6 +30,7 @@ RUN set -e && apk add $PHPIZE_DEPS \
 && make && make install \
 && cd ../ && rm -rf rabbitmq-c-0.8.0 \
 && tar -xf amqp-1.9.4.tgz \
+&& rm -rf amqp-1.9.4.tgz \
 && docker-php-ext-configure $WORK_PATH/amqp-1.9.4 --with-amqp --with-librabbitmq-dir=/usr/local/rabbitmq-c-0.8.0 \
 && docker-php-ext-install $WORK_PATH/amqp-1.9.4 \
 && rm -rf amqp-1.9.4 \
