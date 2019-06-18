@@ -1,0 +1,36 @@
+FROM php:deps
+
+MAINTAINER szh <sali_hub@163.com>
+
+ENV WORK_PATH /var/www/html
+ENV PHPIZE_DEPS \
+		autoconf \
+		dpkg-dev dpkg \
+		file \
+		g++ \
+		gcc \
+		libc-dev \
+		make \
+		pkgconf \
+		re2c \
+		openssl-dev \
+		libvpx \
+		libvpx-devel \
+		libjpeg-turbo \
+		libjpeg-turbo-devel \
+		libpng \
+		libpng-devel \
+		freetype \
+		freetype-devel
+
+WORKDIR $WORK_PATH
+
+ADD repo $WORK_PATH
+
+RUN set -e \ 
+&& echo http://mirrors.ustc.edu.cn/alpine/edge/community/ > /etc/apk/repositories \
+&& echo http://mirrors.ustc.edu.cn/alpine/edge/main/ >> /etc/apk/repositories \
+&& apk update && apk add --no-cache $PHPIZE_DEPS \
+&& docker-php-ext-configure gd --with-vpx-dir=/usr/local/ --with-jpeg-dir=/usr/local/ --with-png-dir=/usr/local/ --with-freetype-dir=/usr/local
+
+CMD ["php-fpm"]
