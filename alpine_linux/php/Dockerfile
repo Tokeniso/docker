@@ -14,15 +14,26 @@ ENV PHPIZE_DEPS \
 		pkgconf \
 		re2c \
 		openssl-dev
+		
+ENV GD_DEPS \
+		libjpeg-turbo \
+		libjpeg-turbo-dev \
+		libpng \
+		libpng-dev \
+		freetype \
+		freetype-dev
 
 WORKDIR $WORK_PATH
 
 ADD ./php/repo $WORK_PATH
 
 RUN set -e \ 
-&& sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories \
-&& apk update && apk add $PHPIZE_DEPS \
+&& echo http://mirrors.ustc.edu.cn/alpine/edge/main/ > /etc/apk/repositories \
+&& apk update && apk add $PHPIZE_DEPS $GD_DEPS \
 && docker-php-ext-install pdo_mysql \
+&& apk update && apk add --no-cache $PHPIZE_DEPS \
+&& docker-php-ext-configure gd --with-jpeg-dir=/usr/local/ --with-png-dir=/usr/local/ --with-freetype-dir=/usr/local \
+&& docker-php-ext-install gd \
 && tar -xf rabbitmq-c-0.8.0.tar.gz \
 && rm -rf rabbitmq-c-0.8.0.tar.gz \
 && cd rabbitmq-c-0.8.0 \ 

@@ -14,14 +14,12 @@ ENV PHPIZE_DEPS \
 		pkgconf \
 		re2c \
 		openssl-dev \
-		libvpx \
-		libvpx-devel \
 		libjpeg-turbo \
-		libjpeg-turbo-devel \
+		libjpeg-turbo-dev \
 		libpng \
-		libpng-devel \
+		libpng-dev \
 		freetype \
-		freetype-devel
+		freetype-dev
 
 WORKDIR $WORK_PATH
 
@@ -31,6 +29,6 @@ RUN set -e \
 && echo http://mirrors.ustc.edu.cn/alpine/edge/community/ > /etc/apk/repositories \
 && echo http://mirrors.ustc.edu.cn/alpine/edge/main/ >> /etc/apk/repositories \
 && apk update && apk add --no-cache $PHPIZE_DEPS \
-&& docker-php-ext-configure gd --with-vpx-dir=/usr/local/ --with-jpeg-dir=/usr/local/ --with-png-dir=/usr/local/ --with-freetype-dir=/usr/local
+&& docker-php-ext-configure gd --with-jpeg-dir=/usr/local/ --with-png-dir=/usr/local/ --with-freetype-dir=/usr/local
 
 CMD ["php-fpm"]
